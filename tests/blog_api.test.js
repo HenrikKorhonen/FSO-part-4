@@ -56,7 +56,7 @@ const initialBlogs = [
     }
 ]
 
-describe('when there is initially some notes saved', () => {
+describe('when there is initially some blogs saved', () => {
     beforeEach(async () => {
         await Blog.deleteMany({})
         for (let blog of initialBlogs) {
@@ -64,20 +64,20 @@ describe('when there is initially some notes saved', () => {
             await blogObject.save()
         }
     })
-    
-    test('notes are returned as json', async () => {
+
+    test('blogs are returned as json', async () => {
         await api
             .get('/api/blogs')
             .expect(200)
             .expect('Content-Type', /application\/json/)
         })
 
-    test('all notes are returned', async () => {
+    test('all blogs are returned', async () => {
         const response = await api.get('/api/blogs')
         expect(response.body).toHaveLength(initialBlogs.length)
         })
 
-    test('a specific note is within the returned notes', async () => {
+    test('a specific note is within the returned blogs', async () => {
         const response = await api.get('/api/blogs')
         const contents = response.body.map(r => r.title)
 
@@ -95,29 +95,144 @@ describe('when there is initially some notes saved', () => {
 })
 
 
-test('a valid blog can be added ', async () => {
-    const newBlog = {
-        title: "A blog's a blog",
-        author: "Rob Blogger",
-        url: "http://example.com",
-        likes: 3
-    }
-  
-    await api
-      .post('/api/blogs')
-      .send(newBlog)
-      .expect(201)
-      .expect('Content-Type', /application\/json/)
-  
-    const response = await api.get('/api/blogs')
-  
-    const contents = response.body.map(r => r.title)
-  
-    expect(response.body).toHaveLength(initialBlogs.length + 1)
-    expect(contents).toContain(
-      "A blog's a blog"
-    )
-  })
+describe('when adding blogs', () => {
+    beforeEach(async () => {
+        await Blog.deleteMany({})
+        for (let blog of initialBlogs) {
+            let blogObject = new Blog(blog)
+            await blogObject.save()
+        }
+    })
+
+    test('a valid blog can be added ', async () => {
+        const newBlog = {
+            title: "A blog's a blog",
+            author: "Rob Blogger",
+            url: "http://example.com",
+            likes: 3
+        }
+    
+        await api
+        .post('/api/blogs')
+        .send(newBlog)
+        .expect(201)
+        .expect('Content-Type', /application\/json/)
+    
+        const response = await api.get('/api/blogs')
+    
+        const contents = response.body.map(r => r.title)
+    
+        expect(response.body).toHaveLength(initialBlogs.length + 1)
+        expect(contents).toContain(
+        "A blog's a blog"
+        )
+    })
+
+    test('a blog without likes will default to 0', async () => {
+        const newBlog = {
+            title: "A blog's a blog",
+            author: "Rob Blogger",
+            url: "http://example.com"
+        }
+    
+        await api
+        .post('/api/blogs')
+        .send(newBlog)
+        .expect(201)
+        .expect('Content-Type', /application\/json/)
+    
+        const response = await api.get('/api/blogs')
+    
+        const blogs = response.body.map(r => {
+            return {title: r.title, likes: r.likes}
+        })
+    
+        expect(response.body).toHaveLength(initialBlogs.length + 1)
+        expect(blogs).toContainEqual(
+            {title: "A blog's a blog", likes: 0}
+        )
+    })
+
+    test('fails with status code 400 if url is missing', async () => {
+        const newBlog = {
+            title: "A blog's a blog",
+            author: "Rob Blogger"
+        }
+
+        const inital = await api.get('/api/blogs')
+    
+        await api
+            .post('/api/blogs')
+            .send(newBlog)
+            .expect(400)
+        
+       const eventual = await api.get('/api/blogs')
+    
+        expect(inital.body).toHaveLength(eventual.body.length)
+        })
+
+    test('fails with status code 400 if title is missing', async () => {
+        const newBlog = {
+            author: "Rob Blogger",
+            url: "http://example.com"
+        }
+
+        const inital = await api.get('/api/blogs')
+    
+        await api
+            .post('/api/blogs')
+            .send(newBlog)
+            .expect(400)
+        
+        const eventual = await api.get('/api/blogs')
+    
+        expect(inital.body).toHaveLength(eventual.body.length)
+        })
+})
+
+describe('when modifying blogs', () => {
+    beforeEach(async () => {
+        await Blog.deleteMany({})
+        for (let blog of initialBlogs) {
+            let blogObject = new Blog(blog)
+            await blogObject.save()
+        }
+    })
+
+    test('a blog can be deleted', async () => { 
+        const blogs = await api.get('/api/blogs')
+        const id = blogs.body[0].id
+        await api
+            .delete(`/api/blogs/${id}`)
+            .expect(204)
+
+        await api
+            .get(`/api/blogs/${id}`)
+            .expect(404)
+
+        const response = await api.get('/api/blogs')
+        expect(response.body).toHaveLength(initialBlogs.length - 1)
+    })
+
+    test('a blog can be updated', async () => {
+        const blogs = await api.get('/api/blogs')
+        const blog = blogs.body[0]
+        
+        blog.likes += 1
+
+        await api
+            .put(`/api/blogs/${blog.id}`)
+            .send(blog)
+            .expect(200)
+    
+        const response = await api.get('/api/blogs')
+        
+        expect(response.body).toHaveLength(initialBlogs.length)
+        expect(response.body).toContainEqual(blog)
+    })      
+})
+
+
 
 afterAll(async () => {
     await mongoose.connection.close()

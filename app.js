@@ -26,7 +26,6 @@ app.use('/api/blogs', blogsRouter)
 app.use(middleware.unknownEndpoint)
 app.use(middleware.errorHandler)
 
-//app.use('/api/blogs', blogsRouter)
 module.exports = {
     app
 }

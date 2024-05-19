@@ -7,14 +7,13 @@ const cors = require('cors')
 blogsRouter.use(cors())
 blogsRouter.use(express.json())
 
-const jwt = require('jsonwebtoken')
-
-const getTokenFrom = request => {
-  const authorization = request.get('authorization')
-  if (authorization && authorization.startsWith('Bearer ')) {
-    return authorization.replace('Bearer ', '')
+const authenticate = (request, response, next) => {
+  if (request.user === undefined) {
+    return response.status(401).json({ error: 'token missing or invalid' })
   }
-  return null
+  else {
+    next()
+  }
 }
 
 blogsRouter.get('/', (request, response) => {
@@ -26,16 +25,8 @@ blogsRouter.get('/', (request, response) => {
     })
 })
   
-blogsRouter.post('/', async (request, response, next) => {
-  let decodedToken = null
-  try {
-    decodedToken = jwt.verify(getTokenFrom(request), process.env.SECRET)
-  } catch (error) {
-    next(error)
-  }
-
-  const user = await User.findById(decodedToken.id)
-  request.body.user = user._id
+blogsRouter.post('/', authenticate, async (request, response, next) => {
+  request.body.user = request.user._id
 
   if (request.body.likes === undefined) {
     request.body.likes = 0
@@ -54,20 +45,39 @@ blogsRouter.post('/', async (request, response, next) => {
   })
 })
 
-blogsRouter.delete('/:id', (request, response) => {
+blogsRouter.delete('/:id', authenticate, (request, response) => {
   Blog
-    .findByIdAndRemove(request.params.id)
+    .findById(request.params.id)
     .then(result => {
-      response.status(204).end()
+      if (result.user.toString() === request.user._id.toString()) {
+        Blog
+          .findByIdAndRemove(request.params.id)
+          .then(result => {
+            return response.status(204).end()
+        })
+      }
+      else {
+        return response.status(403).json({ error: 'forbidden' })
+      }
   })
 })
 
-blogsRouter.put('/:id', (request, response) => {
+blogsRouter.put('/:id', authenticate, (request, response) => {
+  request.body.user = request.user._id
   const blog = request.body
   Blog
-    .findByIdAndUpdate(request.params.id, blog, { new: true })
+    .findById(request.params.id)
     .then(result => {
-      response.json(result)
+      if (result.user.toString() === request.user._id.toString()) {
+        Blog
+          .findByIdAndUpdate(request.params.id, blog, { new: true })
+          .then(result => {
+            return response.json(result)
+        })
+      }
+      else {
+        return response.status(403).json({ error: 'forbidden' })
+      }
   })
 })
 

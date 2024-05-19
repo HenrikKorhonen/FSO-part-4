@@ -150,6 +150,29 @@ describe('when adding blogs', () => {
     
         expect(inital.body).toHaveLength(eventual.body.length)
         })
+
+    test('fails with status code 401 if token is missing', async () => {
+        const newBlog = {
+            title: "A blog's a blog",
+            author: "Rob Blogger",
+            url: "http://example.com",
+            likes: 3,
+        }
+
+        const inital = await api.get('/api/blogs')
+    
+        const response = await api
+            .post('/api/blogs')
+            .send(newBlog)
+            .expect(401)
+        
+        const eventual = await api.get('/api/blogs')
+    
+        expect(inital.body).toHaveLength(eventual.body.length)
+        expect(response.body.error).toEqual('token missing or invalid')
+        })
+
+
 })
 
 describe('when modifying blogs', () => {
@@ -191,7 +214,7 @@ describe('when modifying blogs', () => {
         const response = await api.get('/api/blogs')
         
         expect(response.body).toHaveLength(blogs.body.length)
-        expect(response.body).toContainEqual(bO.toJSON())
+        expect(response.body).toContainEqual(blog)
     })      
 })
 

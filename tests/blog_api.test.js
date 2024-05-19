@@ -1,7 +1,7 @@
 const mongoose = require('mongoose')
 const supertest = require('supertest')
-const {server} = require('../index')
-const api = supertest.agent(server)
+const {app} = require('../app')
+const api = supertest.agent(app.listen())
 
 const Blog = require('../models/blog')
 
@@ -236,5 +236,5 @@ describe('when modifying blogs', () => {
 
 afterAll(async () => {
     await mongoose.connection.close()
-    server.close()
+    // server.close()
 })

@@ -10,6 +10,7 @@ blogsRouter.use(express.json())
 blogsRouter.get('/', (request, response) => {
     Blog
       .find({})
+      .populate('user', { username: 1, name: 1, id: 1})
       .then(blogs => {
         response.json(blogs)
     })

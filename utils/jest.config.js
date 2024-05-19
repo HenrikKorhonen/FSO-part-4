@@ -1,0 +1,3 @@
+{
+    "testSequencer": "tests/testSequencer.js"
+}

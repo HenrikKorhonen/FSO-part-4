@@ -4,7 +4,7 @@
   "description": "FSO part 3",
   "main": "index.js",
   "scripts": {
-    "test": "NODE_ENV=test npx jest --verbose",
+    "test": "NODE_ENV=test npx jest --verbose --test-concurrency=1 --runInBand",
     "start": "NODE_ENV=production npx nodemon index.js",
     "dev": "NODE_ENV=development node_modules/.bin/nodemon index.js",
     "lint": "eslint ."
@@ -16,7 +16,8 @@
     "express": "^4.18.2",
     "mongoose": "7.6.5",
     "morgan": "^1.10.0",
-    "bcrypt": "^5.0.1"
+    "bcrypt": "^5.1.1",
+    "jsonwebtoken": "^9.0.2"
   },
   "devDependencies": {
     "eslint": "^8.47.0",
@@ -27,6 +28,7 @@
   "jest": {
     "testEnvironment": "node",
     "globalTeardown": "./tests/teardown.js",
+    "testSequencer": "./tests/testSequencer.js",
     "testMatch": [
       "**/tests/*.test.js?(x)"
     ]

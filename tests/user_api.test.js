@@ -11,12 +11,7 @@ const User = require('../models/user')
 
 describe('when there is initially one user at db', () => {
   beforeEach(async () => {
-    await User.deleteMany({})
-
-    const passwordHash = await bcrypt.hash('sekret', 10)
-    const user = new User({ username: 'root', passwordHash })
-
-    await user.save()
+    await helper.beforeEach()
   })
 
   test('creation succeeds with a fresh username', async () => {
@@ -108,6 +103,5 @@ describe('when there is initially one user at db', () => {
 })
 
 afterAll(async () => {
-    await mongoose.connection.close()
-    // server.close()
+    //await mongoose.connection.close()
 })

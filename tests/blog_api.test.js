@@ -3,66 +3,14 @@ const supertest = require('supertest')
 const {app} = require('../app')
 const api = supertest.agent(app.listen())
 
+const helper = require('./test_helper')
 const Blog = require('../models/blog')
 
-const initialBlogs = [
-    {
-        //_id: "5a422a851b54a676234d17f7",
-        //__v: 0,
-        title: "React patterns",
-        author: "Michael Chan",
-        url: "https://reactpatterns.com/",
-        likes: 7
-    },
-    {
-        //_id: "5a422aa71b54a676234d17f8",
-        //__v: 0,
-        title: "Go To Statement Considered Harmful",
-        author: "Edsger W. Dijkstra",
-        url: "http://www.u.arizona.edu/~rubinson/copyright_violations/Go_To_Considered_Harmful.html",
-        likes: 5
-    },
-    {
-        //_id: "5a422b3a1b54a676234d17f9",
-        //__v: 0,
-        title: "Canonical string reduction",
-        author: "Edsger W. Dijkstra",
-        url: "http://www.cs.utexas.edu/~EWD/transcriptions/EWD08xx/EWD808.html",
-        likes: 12
-    },
-    {
-        //_id: "5a422b891b54a676234d17fa",
-        //__v: 0,
-        title: "First class tests",
-        author: "Robert C. Martin",
-        url: "http://blog.cleancoder.com/uncle-bob/2017/05/05/TestDefinitions.htmll",
-        likes: 10
-    },
-    {
-        //_id: "5a422ba71b54a676234d17fb",
-        //__v: 0,
-        title: "TDD harms architecture",
-        author: "Robert C. Martin",
-        url: "http://blog.cleancoder.com/uncle-bob/2017/03/03/TDD-Harms-Architecture.html",
-        likes: 0
-    },
-    {
-        //_id: "5a422bc61b54a676234d17fc",
-        //__v: 0,
-        title: "Type wars",
-        author: "Robert C. Martin",
-        url: "http://blog.cleancoder.com/uncle-bob/2016/05/01/TypeWars.html",
-        likes: 2
-    }
-]
+let token = null
 
 describe('when there is initially some blogs saved', () => {
     beforeEach(async () => {
-        await Blog.deleteMany({})
-        for (let blog of initialBlogs) {
-            let blogObject = new Blog(blog)
-            await blogObject.save()
-        }
+        await helper.beforeEach()
     })
 
     test('blogs are returned as json', async () => {
@@ -74,7 +22,7 @@ describe('when there is initially some blogs saved', () => {
 
     test('all blogs are returned', async () => {
         const response = await api.get('/api/blogs')
-        expect(response.body).toHaveLength(initialBlogs.length)
+        expect(response.body).toHaveLength(helper.initialBlogs.length)
         })
 
     test('a specific note is within the returned blogs', async () => {
@@ -92,16 +40,20 @@ describe('when there is initially some blogs saved', () => {
             expect(blog.id).toBeDefined()
         }
     })
+
+    test('returned blogs have a user property', async () => {
+        const response = await api.get('/api/blogs')
+        for (let blog of response.body) {
+            expect(blog.user).toBeDefined()
+        }
+    })
 })
 
 
 describe('when adding blogs', () => {
     beforeEach(async () => {
-        await Blog.deleteMany({})
-        for (let blog of initialBlogs) {
-            let blogObject = new Blog(blog)
-            await blogObject.save()
-        }
+        await helper.beforeEach()
+        token = await api.post('/api/login').send({username: 'root', password: 'sekret'})
     })
 
     test('a valid blog can be added ', async () => {
@@ -109,34 +61,42 @@ describe('when adding blogs', () => {
             title: "A blog's a blog",
             author: "Rob Blogger",
             url: "http://example.com",
-            likes: 3
+            likes: 3,
         }
     
         await api
         .post('/api/blogs')
+        .set('Authorization', `Bearer ${token.body.token}`)
         .send(newBlog)
         .expect(201)
         .expect('Content-Type', /application\/json/)
     
         const response = await api.get('/api/blogs')
     
-        const contents = response.body.map(r => r.title)
+        const contents = response.body.map(r => {
+            return { 'title':r.title, 'name': r.user.name  }
+        })
     
-        expect(response.body).toHaveLength(initialBlogs.length + 1)
-        expect(contents).toContain(
-        "A blog's a blog"
+        expect(response.body).toHaveLength(helper.initialBlogs.length + 1)
+        expect(contents).toContainEqual(
+            {title: "A blog's a blog", name: 'Superuser'}
         )
     })
 
     test('a blog without likes will default to 0', async () => {
+       
         const newBlog = {
             title: "A blog's a blog",
             author: "Rob Blogger",
-            url: "http://example.com"
+            url: "http://example.com",
+            //user: users[0].id
         }
+
+        const initial = await api.get('/api/blogs')
     
         await api
         .post('/api/blogs')
+        .set('Authorization', `Bearer ${token.body.token}`)
         .send(newBlog)
         .expect(201)
         .expect('Content-Type', /application\/json/)
@@ -147,7 +107,7 @@ describe('when adding blogs', () => {
             return {title: r.title, likes: r.likes}
         })
     
-        expect(response.body).toHaveLength(initialBlogs.length + 1)
+        expect(response.body).toHaveLength(initial.body.length + 1)
         expect(blogs).toContainEqual(
             {title: "A blog's a blog", likes: 0}
         )
@@ -163,6 +123,7 @@ describe('when adding blogs', () => {
     
         await api
             .post('/api/blogs')
+            .set('Authorization', `Bearer ${token.body.token}`)
             .send(newBlog)
             .expect(400)
         
@@ -181,6 +142,7 @@ describe('when adding blogs', () => {
     
         await api
             .post('/api/blogs')
+            .set('Authorization', `Bearer ${token.body.token}`)
             .send(newBlog)
             .expect(400)
         
@@ -192,11 +154,8 @@ describe('when adding blogs', () => {
 
 describe('when modifying blogs', () => {
     beforeEach(async () => {
-        await Blog.deleteMany({})
-        for (let blog of initialBlogs) {
-            let blogObject = new Blog(blog)
-            await blogObject.save()
-        }
+        await helper.beforeEach()
+        token = await api.post('/api/login').send({username: 'root', password: 'sekret'})
     })
 
     test('a blog can be deleted', async () => { 
@@ -204,6 +163,7 @@ describe('when modifying blogs', () => {
         const id = blogs.body[0].id
         await api
             .delete(`/api/blogs/${id}`)
+            .set('Authorization', `Bearer ${token.body.token}`)
             .expect(204)
 
         await api
@@ -211,7 +171,7 @@ describe('when modifying blogs', () => {
             .expect(404)
 
         const response = await api.get('/api/blogs')
-        expect(response.body).toHaveLength(initialBlogs.length - 1)
+        expect(response.body).toHaveLength(blogs.body.length - 1)
     })
 
     test('a blog can be updated', async () => {
@@ -219,22 +179,24 @@ describe('when modifying blogs', () => {
         const blog = blogs.body[0]
         
         blog.likes += 1
+        let blogObject = new Blog(blog)
+        bO = await blogObject.populate('user', { username: 1, name: 1, id: 1})
 
         await api
             .put(`/api/blogs/${blog.id}`)
             .send(blog)
+            .set('Authorization', `Bearer ${token.body.token}`)
             .expect(200)
     
         const response = await api.get('/api/blogs')
         
-        expect(response.body).toHaveLength(initialBlogs.length)
-        expect(response.body).toContainEqual(blog)
+        expect(response.body).toHaveLength(blogs.body.length)
+        expect(response.body).toContainEqual(bO.toJSON())
     })      
 })
 
 
 
 afterAll(async () => {
-    await mongoose.connection.close()
-    // server.close()
+   //await mongoose.connection.close()
 })

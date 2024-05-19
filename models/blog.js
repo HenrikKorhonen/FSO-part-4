@@ -19,6 +19,12 @@ blogSchema.set('toJSON', {
     delete returnedObject.__v
   }
 })
+
+blogSchema.set('toDB', {
+  transform: (document, returnedObject) => {
+    returnedObject.user = returnedObject.user.id
+  }
+})
   
 const Blog = mongoose.model('Blog', blogSchema)
 

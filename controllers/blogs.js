@@ -1,11 +1,21 @@
 const express = require('express')
 const blogsRouter = express.Router()
 const Blog = require('../models/blog')
+const User = require('../models/user')
 const logger = require('../utils/logger')
 const cors = require('cors')
 blogsRouter.use(cors())
 blogsRouter.use(express.json())
 
+const jwt = require('jsonwebtoken')
+
+const getTokenFrom = request => {
+  const authorization = request.get('authorization')
+  if (authorization && authorization.startsWith('Bearer ')) {
+    return authorization.replace('Bearer ', '')
+  }
+  return null
+}
 
 blogsRouter.get('/', (request, response) => {
     Blog
@@ -16,14 +26,26 @@ blogsRouter.get('/', (request, response) => {
     })
 })
   
-blogsRouter.post('/', (request, response) => {
+blogsRouter.post('/', async (request, response, next) => {
+  let decodedToken = null
+  try {
+    decodedToken = jwt.verify(getTokenFrom(request), process.env.SECRET)
+  } catch (error) {
+    next(error)
+  }
+
+  const user = await User.findById(decodedToken.id)
+  request.body.user = user._id
+
   if (request.body.likes === undefined) {
     request.body.likes = 0
   }
   if (request.body.title === undefined || request.body.url === undefined) {
     return response.status(400).json({ error: 'title or url missing' })
   }
+
   const blog = new Blog(request.body)
+  
   logger.info(request.body)
   blog
     .save()
